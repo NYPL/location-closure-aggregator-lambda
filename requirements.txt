@@ -1,0 +1,2 @@
+nypl-py-utils==0.0.6
+pandas

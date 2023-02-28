@@ -1,0 +1,7 @@
+.DS_Store
+package/
+*env/
+*.zip
+__pycache__/
+*.py[cod]
+*$py.class
