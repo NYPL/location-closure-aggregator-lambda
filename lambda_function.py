@@ -97,17 +97,25 @@ def lambda_handler(event, context):
         kms_client.decrypt(os.environ['REDSHIFT_DB_PASSWORD']))
     kms_client.close()
 
+    hours_table = 'location_hours'
+    closures_table = 'location_closures'
+    closure_alerts_table = 'location_closure_alerts'
+    if os.environ['REDSHIFT_DB_NAME'] != 'production':
+        db_suffix = '_{}'.format(os.environ['REDSHIFT_DB_NAME'])
+        hours_table += db_suffix
+        closures_table += db_suffix
+        closure_alerts_table += db_suffix
+
     redshift_client.connect()
-    alerts_df = redshift_client.execute_query(build_get_alerts_query())
+    alerts_df = redshift_client.execute_query(
+        build_get_alerts_query(hours_table, closure_alerts_table))
     closures = get_closures(alerts_df)
     try:
         cursor = redshift_client.conn.cursor()
         cursor.execute('BEGIN TRANSACTION;')
         if closures is not None:
-            cursor.write_dataframe(
-                closures, os.environ['REDSHIFT_CLOSURES_TABLE'])
-        cursor.execute('DELETE FROM {};'.format(
-            os.environ['REDSHIFT_CLOSURE_ALERTS_TABLE']))
+            cursor.write_dataframe(closures, closures_table)
+        cursor.execute('DELETE FROM {};'.format(closure_alerts_table))
         cursor.execute('END TRANSACTION;')
         redshift_client.conn.commit()
     except Exception as e:

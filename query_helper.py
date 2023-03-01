@@ -31,7 +31,6 @@ _GET_ALERTS_QUERY = '''
         current_location_hours.weekday;'''
 
 
-def build_get_alerts_query():
-    return _GET_ALERTS_QUERY.format(
-        hours_table=os.environ['REDSHIFT_HOURS_TABLE'],
-        closure_alerts_table=os.environ['REDSHIFT_CLOSURE_ALERTS_TABLE'])
+def build_get_alerts_query(hours_table, closure_alerts_table):
+    return _GET_ALERTS_QUERY.format(hours_table=hours_table,
+                                    closure_alerts_table=closure_alerts_table)
