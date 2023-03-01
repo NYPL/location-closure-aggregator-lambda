@@ -1,5 +1,3 @@
-import os
-
 _GET_ALERTS_QUERY = '''
     WITH current_location_hours AS (
         SELECT

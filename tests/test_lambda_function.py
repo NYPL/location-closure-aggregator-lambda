@@ -54,10 +54,6 @@ class TestLambdaFunction:
         os.environ['REDSHIFT_DB_NAME'] = 'test_redshift_db'
         os.environ['REDSHIFT_DB_USER'] = 'test_redshift_user'
         os.environ['REDSHIFT_DB_PASSWORD'] = 'test_redshift_password'
-        os.environ['REDSHIFT_HOURS_TABLE'] = 'test_hours_table'
-        os.environ[
-            'REDSHIFT_CLOSURE_ALERTS_TABLE'] = 'test_closure_alerts_table'
-        os.environ['REDSHIFT_CLOSURES_TABLE'] = 'test_closures_table'
 
     @classmethod
     def teardown_class(cls):
@@ -65,9 +61,6 @@ class TestLambdaFunction:
         del os.environ['REDSHIFT_DB_NAME']
         del os.environ['REDSHIFT_DB_USER']
         del os.environ['REDSHIFT_DB_PASSWORD']
-        del os.environ['REDSHIFT_HOURS_TABLE']
-        del os.environ['REDSHIFT_CLOSURE_ALERTS_TABLE']
-        del os.environ['REDSHIFT_CLOSURES_TABLE']
 
     @ pytest.fixture
     def test_instance(self, mocker):
@@ -111,10 +104,11 @@ class TestLambdaFunction:
         mock_redshift_client.execute_query.assert_called_once_with(
             'REDSHIFT ALERTS QUERY')
         mock_redshift_cursor.write_dataframe.assert_called_once_with(
-            _BASE_CLOSURES_DF, 'test_closures_table')
+            _BASE_CLOSURES_DF, 'location_closures_test_redshift_db')
         mock_redshift_cursor.execute.assert_has_calls([
             mocker.call('BEGIN TRANSACTION;'),
-            mocker.call('DELETE FROM test_closure_alerts_table;'),
+            mocker.call(
+                'DELETE FROM location_closure_alerts_test_redshift_db;'),
             mocker.call('END TRANSACTION;'),
         ])
         mock_redshift_client.conn.commit.assert_called_once()
