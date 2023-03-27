@@ -3,7 +3,8 @@ import os
 import pandas as pd
 
 from datetime import datetime
-from nypl_py_utils import KmsClient, RedshiftClient
+from nypl_py_utils.classes.kms_client import KmsClient
+from nypl_py_utils.classes.redshift_client import RedshiftClient
 from nypl_py_utils.functions.log_helper import create_log
 from pytz import timezone
 from query_helper import build_get_alerts_query
@@ -107,8 +108,12 @@ def lambda_handler(event, context):
         closure_alerts_table += db_suffix
 
     redshift_client.connect()
-    alerts_df = redshift_client.execute_query(
+    raw_alerts = redshift_client.execute_query(
         build_get_alerts_query(hours_table, closure_alerts_table))
+    alerts_df = pd.DataFrame(data=raw_alerts, columns=[
+        'drupal_location_id', 'name', 'alert_id', 'closed_for',
+        'extended_closing', 'alert_start', 'alert_end', 'polling_datetime',
+        'regular_open', 'regular_close'])
     closures = get_closures(alerts_df)
     try:
         cursor = redshift_client.conn.cursor()

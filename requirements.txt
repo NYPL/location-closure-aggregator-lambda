@@ -1,2 +1,2 @@
-nypl-py-utils==0.0.6
-pandas
+nypl-py-utils==1.0.0
+redshift-connector
