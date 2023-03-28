@@ -1,6 +1,8 @@
 #!/bin/zsh
 
-pip install --target ./package -r requirements.txt
+rm -f -r ./package
+rm -f deployment-package.zip
+pip3.9 install --target ./package -r requirements.txt
 cd package
 zip -r ../deployment-package.zip .
 cd ..
