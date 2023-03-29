@@ -33,7 +33,7 @@ _BASE_CLOSURES_DF = pd.DataFrame({
 })
 
 _BASE_ALERTS_DF = convert_df_types(pd.DataFrame({
-    'drupal_location_id': [None]*15,
+    'drupal_location_id': ['location_closure_alert_poller']*15,
     'name': [None]*15,
     'alert_id': [None]*15,
     'closed_for': [None]*15,
@@ -113,6 +113,9 @@ class TestLambdaFunction:
         ])
         mock_redshift_client.conn.commit.assert_called_once()
         mock_redshift_client.close_connection.assert_called_once()
+
+    def test_poller_closures(self, test_instance):
+        assert lambda_function.get_closures(_BASE_ALERTS_DF) is None
 
     def test_temp_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
