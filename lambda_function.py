@@ -15,6 +15,9 @@ _EASTERN_TIMEZONE = timezone('US/Eastern')
 
 
 def get_closures(alerts_df):
+    if len(alerts_df) == 0:
+        return None
+    
     # Each polling session should only encompass one day
     polling_datetimes = alerts_df['polling_datetime'].unique()
     polling_date = polling_datetimes.min().astimezone('US/Eastern').date()
@@ -26,7 +29,9 @@ def get_closures(alerts_df):
 
     closures = []
     for alert_id, alert_group in alerts_df.groupby('alert_id'):
-        if alert_id is None:
+        # These are fake alerts created by the LocationClosureAlertPoller for
+        # the purpose of recording each polling datetime
+        if alert_id == 'location_closure_alert_poller':
             continue
 
         # We assume the most recently polled version of the alert is the most
