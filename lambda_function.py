@@ -15,9 +15,10 @@ _EASTERN_TIMEZONE = timezone('US/Eastern')
 
 
 def get_closures(alerts_df):
+    logger.info('Aggregating closures')
     if len(alerts_df) == 0:
         return None
-    
+
     # Each polling session should only encompass one day
     polling_datetimes = alerts_df['polling_datetime'].unique()
     polling_date = polling_datetimes.min().astimezone('US/Eastern').date()
@@ -91,10 +92,12 @@ def get_closures(alerts_df):
                     alert_poll_times)
                 closures.append(closure)
 
-    return None if len(closures) == 0 else pd.DataFrame.from_dict(closures)
+    return None if len(closures) == 0 else pd.DataFrame.from_dict(
+        closures).values
 
 
 def lambda_handler(event, context):
+    logger.info('Starting lambda processing')
     kms_client = KmsClient()
     redshift_client = RedshiftClient(
         kms_client.decrypt(os.environ['REDSHIFT_DB_HOST']),
@@ -120,26 +123,18 @@ def lambda_handler(event, context):
         'extended_closing', 'alert_start', 'alert_end', 'polling_datetime',
         'regular_open', 'regular_close'])
     closures = get_closures(alerts_df)
-    try:
-        cursor = redshift_client.conn.cursor()
-        cursor.execute('BEGIN TRANSACTION;')
-        if closures is not None:
-            cursor.write_dataframe(closures, closures_table)
-        cursor.execute('DELETE FROM {};'.format(closure_alerts_table))
-        cursor.execute('END TRANSACTION;')
-        redshift_client.conn.commit()
-    except Exception as e:
-        redshift_client.conn.rollback()
-        logger.error(
-            'Error executing insert/deletion transaction: {}'.format(e))
-        raise LocationClosureAggregatorError(
-            ('Error executing insert/deletion transaction: {}'
-             .format(e))) from None
-    finally:
-        logger.info('Closing Redshift connection')
-        cursor.close()
-        redshift_client.close_connection()
+    queries = []
+    if closures is not None:
+        placeholder = ", ".join(["%s"] * len(closures[0]))
+        insert_query = 'INSERT INTO {closures_table} VALUES ({placeholder});'\
+            .format(closures_table=closures_table, placeholder=placeholder)
+        for closure in closures:
+            queries.append((insert_query, closure))
+    queries.append(('DELETE FROM {};'.format(closure_alerts_table), None))
+    redshift_client.execute_transaction(queries)
+    redshift_client.close_connection()
 
+    logger.info('Finished lambda processing')
     return {
         "statusCode": 200,
         "body": json.dumps({

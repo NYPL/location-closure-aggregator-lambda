@@ -1,11 +1,12 @@
 import json
 import lambda_function
+import numpy as np
 import os
 import pandas as pd
 import pytest
 
 from datetime import time
-from pandas.testing import assert_frame_equal
+from numpy.testing import assert_array_equal
 
 
 def convert_df_types(input_df):
@@ -20,17 +21,17 @@ def get_polling_times(start, end):
     return ['2023-01-01 {:02d}:01:23-05'.format(i) for i in range(start, end)]
 
 
-_BASE_CLOSURES_DF = pd.DataFrame({
+_BASE_CLOSURES = pd.DataFrame({
     'drupal_location_id': ['aa'],
     'name': ['Library A'],
     'alert_id': ['1'],
     'closed_for': ['Lib A is closed'],
     'is_extended_closure': [False],
-    'is_full_day': [False],
     'closure_date': ['2023-01-01'],
     'closure_start': ['11:00:00'],
-    'closure_end': ['14:00:00']
-})
+    'closure_end': ['14:00:00'],
+    'is_full_day': [False]
+}).values
 
 _BASE_ALERTS_DF = convert_df_types(pd.DataFrame({
     'drupal_location_id': ['location_closure_alert_poller']*15,
@@ -78,14 +79,10 @@ class TestLambdaFunction:
 
     def test_lambda_handler(self, test_instance, mock_kms_client, mocker):
         mock_redshift_client = mocker.MagicMock()
-        mock_redshift_cursor = mocker.MagicMock()
-        mock_redshift_client.conn.cursor.return_value = mock_redshift_cursor
-        mock_redshift_client.execute_query.return_value = _BASE_ALERTS_DF
         mocker.patch('lambda_function.RedshiftClient',
                      return_value=mock_redshift_client)
-
         mocker.patch('lambda_function.get_closures',
-                     return_value=_BASE_CLOSURES_DF)
+                     return_value=_BASE_CLOSURES)
 
         assert lambda_function.lambda_handler(None, None) == {
             "statusCode": 200,
@@ -103,16 +100,23 @@ class TestLambdaFunction:
         mock_redshift_client.connect.assert_called_once()
         mock_redshift_client.execute_query.assert_called_once_with(
             'REDSHIFT ALERTS QUERY')
-        mock_redshift_cursor.write_dataframe.assert_called_once_with(
-            _BASE_CLOSURES_DF, 'location_closures_test_redshift_db')
-        mock_redshift_cursor.execute.assert_has_calls([
-            mocker.call('BEGIN TRANSACTION;'),
-            mocker.call(
-                'DELETE FROM location_closure_alerts_test_redshift_db;'),
-            mocker.call('END TRANSACTION;'),
-        ])
-        mock_redshift_client.conn.commit.assert_called_once()
+        mock_redshift_client.execute_transaction.assert_called_once()
         mock_redshift_client.close_connection.assert_called_once()
+
+        assert len(mock_redshift_client.execute_transaction.call_args.args[0]) == 2  # noqa: E501
+        first_query = mock_redshift_client.execute_transaction.call_args.args[0][0]  # noqa: E501
+        second_query = mock_redshift_client.execute_transaction.call_args.args[0][1]  # noqa: E501
+        assert first_query[0] == (
+            'INSERT INTO location_closures_test_redshift_db VALUES (%s, %s, '
+            '%s, %s, %s, %s, %s, %s, %s);')
+        assert_array_equal(
+            first_query[1], np.array([
+                'aa', 'Library A', '1', 'Lib A is closed', False, '2023-01-01',
+                '11:00:00', '14:00:00', False],
+                dtype=object))
+        assert second_query[0] == (
+            'DELETE FROM location_closure_alerts_test_redshift_db;')
+        assert second_query[1] is None
 
     def test_poller_closures(self, test_instance):
         assert lambda_function.get_closures(_BASE_ALERTS_DF) is None
@@ -132,9 +136,8 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _BASE_CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _BASE_CLOSURES)
 
     def test_extended_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -151,21 +154,20 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        _CLOSURES_DF = pd.DataFrame({
+        _CLOSURES = pd.DataFrame({
             'drupal_location_id': ['bb'],
             'name': ['Library B'],
             'alert_id': ['2'],
             'closed_for': ['Lib B is closed'],
             'is_extended_closure': [True],
-            'is_full_day': [True],
             'closure_date': ['2023-01-01'],
             'closure_start': [None],
-            'closure_end': [None]
-        })
+            'closure_end': [None],
+            'is_full_day': [True]
+        }).values
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
 
     def test_clamped_closures(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -185,21 +187,20 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        _CLOSURES_DF = pd.DataFrame({
+        _CLOSURES = pd.DataFrame({
             'drupal_location_id': ['cc', 'dd'],
             'name': ['Library C', 'Library D'],
             'alert_id': ['3', '4'],
             'closed_for': ['Lib C is closed', 'Lib D is closed'],
             'is_extended_closure': [False, False],
-            'is_full_day': [False, False],
             'closure_date': ['2023-01-01', '2023-01-01'],
             'closure_start': ['09:00:00', '15:30:00'],
-            'closure_end': ['12:30:00', '17:00:00']
-        })
+            'closure_end': ['12:30:00', '17:00:00'],
+            'is_full_day': [False, False]
+        }).values
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
 
     def test_full_day_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -216,21 +217,20 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        _CLOSURES_DF = pd.DataFrame({
+        _CLOSURES = pd.DataFrame({
             'drupal_location_id': ['ee'],
             'name': ['Library E'],
             'alert_id': ['5'],
             'closed_for': ['Lib E is closed'],
             'is_extended_closure': [False],
-            'is_full_day': [True],
             'closure_date': ['2023-01-01'],
             'closure_start': ['09:00:00'],
-            'closure_end': ['17:00:00']
-        })
+            'closure_end': ['17:00:00'],
+            'is_full_day': [True]
+        }).values
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
 
     def test_out_of_bounds_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -264,21 +264,20 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        _CLOSURES_DF = pd.DataFrame({
+        _CLOSURES = pd.DataFrame({
             'drupal_location_id': ['gg'],
             'name': ['Library G'],
             'alert_id': ['7'],
             'closed_for': ['Lib G is closed'],
             'is_extended_closure': [False],
-            'is_full_day': [True],
             'closure_date': ['2023-01-01'],
             'closure_start': [None],
-            'closure_end': [None]
-        })
+            'closure_end': [None],
+            'is_full_day': [True]
+        }).values
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
 
     def test_modified_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -297,21 +296,20 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        _CLOSURES_DF = pd.DataFrame({
+        _CLOSURES = pd.DataFrame({
             'drupal_location_id': ['hh'],
             'name': ['Library H'],
             'alert_id': ['8'],
             'closed_for': ['new closed_for'],
             'is_extended_closure': [False],
-            'is_full_day': [False],
             'closure_date': ['2023-01-01'],
             'closure_start': ['10:00:00'],
-            'closure_end': ['13:00:00']
-        })
+            'closure_end': ['13:00:00'],
+            'is_full_day': [False]
+        }).values
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
 
     def test_deleted_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -328,18 +326,17 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        _CLOSURES_DF = pd.DataFrame({
+        _CLOSURES = pd.DataFrame({
             'drupal_location_id': ['ii'],
             'name': ['Library I'],
             'alert_id': ['9'],
             'closed_for': ['Lib I is closed'],
             'is_extended_closure': [False],
-            'is_full_day': [False],
             'closure_date': ['2023-01-01'],
             'closure_start': ['09:01:23'],
-            'closure_end': ['12:01:23']
-        })
+            'closure_end': ['12:01:23'],
+            'is_full_day': [False]
+        }).values
 
-        assert_frame_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES_DF,
-            check_like=True)
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
