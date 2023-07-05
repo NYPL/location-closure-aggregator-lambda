@@ -340,3 +340,51 @@ class TestLambdaFunction:
 
         assert_array_equal(
             lambda_function.get_closures(_FULL_DF), _CLOSURES)
+
+    def test_unavailable_hours_out_of_bounds_closure(self, test_instance):
+        _ALERTS_DF = pd.DataFrame({
+            'drupal_location_id': ['jj']*3,
+            'name': ['Library J']*3,
+            'alert_id': ['10']*3,
+            'closed_for': ['Lib J is closed']*3,
+            'extended_closing': [False]*3,
+            'alert_start': ['2023-06-01 00:00:00-04']*3,
+            'alert_end': ['2023-06-30 00:00:00-04']*3,
+            'polling_datetime': get_polling_times(10, 13),
+            'regular_open': [None]*3,
+            'regular_close': [None]*3})
+        _FULL_DF = convert_df_types(
+            pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
+
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), [])
+
+    def test_multi_location_closure(self, test_instance):
+        _ALERTS_DF = pd.DataFrame({
+            'drupal_location_id': ['kk']*10 + ['ll']*10,
+            'name': ['Library K']*10 + ['Library L']*10,
+            'alert_id': ['11']*20,
+            'closed_for': ['Lib K is closed']*10 + ['Lib L is closed']*10,
+            'extended_closing': [False]*20,
+            'alert_start': ['2023-01-01 00:00:00-05']*20,
+            'alert_end': ['2023-01-01 23:59:59-05']*20,
+            'polling_datetime': get_polling_times(8, 18)*2,
+            'regular_open': [time(9)]*20,
+            'regular_close': [time(17)]*20})
+        _FULL_DF = convert_df_types(
+            pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
+
+        _CLOSURES = pd.DataFrame({
+            'drupal_location_id': ['kk', 'll'],
+            'name': ['Library K', 'Library L'],
+            'alert_id': ['11', '11'],
+            'closed_for': ['Lib K is closed', 'Lib L is closed'],
+            'is_extended_closure': [False, False],
+            'closure_date': ['2023-01-01', '2023-01-01'],
+            'closure_start': ['09:00:00', '09:00:00'],
+            'closure_end': ['17:00:00', '17:00:00'],
+            'is_full_day': [True, True]
+        }).values
+
+        assert_array_equal(
+            lambda_function.get_closures(_FULL_DF), _CLOSURES)
