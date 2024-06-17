@@ -98,7 +98,7 @@ def get_closures(alerts_df):
             closures.append(closure)
 
     return None if len(closures) == 0 else pd.DataFrame.from_dict(
-        closures).values
+        closures).values.tolist()
 
 
 def lambda_handler(event, context):
@@ -133,8 +133,7 @@ def lambda_handler(event, context):
         placeholder = ", ".join(["%s"] * len(closures[0]))
         insert_query = 'INSERT INTO {closures_table} VALUES ({placeholder});'\
             .format(closures_table=closures_table, placeholder=placeholder)
-        for closure in closures:
-            queries.append((insert_query, closure))
+        queries.append((insert_query, closures))
     queries.append(('DELETE FROM {};'.format(closure_alerts_table), None))
     redshift_client.execute_transaction(queries)
     redshift_client.close_connection()

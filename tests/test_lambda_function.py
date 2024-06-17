@@ -6,7 +6,6 @@ import pandas as pd
 import pytest
 
 from datetime import time
-from numpy.testing import assert_array_equal
 
 
 def convert_df_types(input_df):
@@ -31,7 +30,7 @@ _BASE_CLOSURES = pd.DataFrame({
     'closure_start': ['11:00:00'],
     'closure_end': ['14:00:00'],
     'is_full_day': [False]
-}).values
+}).values.tolist()
 
 _BASE_ALERTS_DF = convert_df_types(pd.DataFrame({
     'drupal_location_id': ['location_closure_alert_poller']*15,
@@ -109,11 +108,9 @@ class TestLambdaFunction:
         assert first_query[0] == (
             'INSERT INTO location_closures_test_redshift_db VALUES (%s, %s, '
             '%s, %s, %s, %s, %s, %s, %s);')
-        assert_array_equal(
-            first_query[1], np.array([
-                'aa', 'Library A', '1', 'Lib A is closed', False, '2023-01-01',
-                '11:00:00', '14:00:00', False],
-                dtype=object))
+        assert first_query[1] == [
+            ['aa', 'Library A', '1', 'Lib A is closed', False, '2023-01-01',
+             '11:00:00', '14:00:00', False]]
         assert second_query[0] == (
             'DELETE FROM location_closure_alerts_test_redshift_db;')
         assert second_query[1] is None
@@ -136,8 +133,7 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _BASE_CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _BASE_CLOSURES
 
     def test_extended_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -164,10 +160,9 @@ class TestLambdaFunction:
             'closure_start': [None],
             'closure_end': [None],
             'is_full_day': [True]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
 
     def test_clamped_closures(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -197,10 +192,9 @@ class TestLambdaFunction:
             'closure_start': ['09:00:00', '15:30:00'],
             'closure_end': ['12:30:00', '17:00:00'],
             'is_full_day': [False, False]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
 
     def test_full_day_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -227,10 +221,9 @@ class TestLambdaFunction:
             'closure_start': ['09:00:00'],
             'closure_end': ['17:00:00'],
             'is_full_day': [True]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
 
     def test_out_of_bounds_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -274,10 +267,9 @@ class TestLambdaFunction:
             'closure_start': [None],
             'closure_end': [None],
             'is_full_day': [True]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
 
     def test_modified_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -306,10 +298,9 @@ class TestLambdaFunction:
             'closure_start': ['10:00:00'],
             'closure_end': ['13:00:00'],
             'is_full_day': [False]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
 
     def test_deleted_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -336,10 +327,9 @@ class TestLambdaFunction:
             'closure_start': ['09:01:23'],
             'closure_end': ['12:01:23'],
             'is_full_day': [False]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
 
     def test_unavailable_hours_out_of_bounds_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -356,8 +346,7 @@ class TestLambdaFunction:
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), [])
+        assert lambda_function.get_closures(_FULL_DF) is None
 
     def test_multi_location_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame({
@@ -384,7 +373,6 @@ class TestLambdaFunction:
             'closure_start': ['09:00:00', '09:00:00'],
             'closure_end': ['17:00:00', '17:00:00'],
             'is_full_day': [True, True]
-        }).values
+        }).values.tolist()
 
-        assert_array_equal(
-            lambda_function.get_closures(_FULL_DF), _CLOSURES)
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
