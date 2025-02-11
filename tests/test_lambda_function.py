@@ -1,6 +1,5 @@
 import json
 import lambda_function
-import numpy as np
 import os
 import pandas as pd
 import pytest
@@ -130,6 +129,23 @@ class TestLambdaFunction:
             'polling_datetime': get_polling_times(11, 14),
             'regular_open': [time(9)]*3,
             'regular_close': [time(17)]*3})
+        _FULL_DF = convert_df_types(
+            pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
+
+        assert lambda_function.get_closures(_FULL_DF) == _BASE_CLOSURES
+
+    def test_temp_closure_with_long_alert(self, test_instance):
+        _ALERTS_DF = pd.DataFrame({
+            'drupal_location_id': ['aa']*15,
+            'name': ['Library A']*15,
+            'alert_id': ['1']*15,
+            'closed_for': ['Lib A is closed']*15,
+            'extended_closing': [False]*15,
+            'alert_start': ['2023-01-01 11:00:00-05']*15,
+            'alert_end': ['2023-01-01 14:00:00-05']*15,
+            'polling_datetime': get_polling_times(6, 21),
+            'regular_open': [time(9)]*15,
+            'regular_close': [time(17)]*15})
         _FULL_DF = convert_df_types(
             pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True))
 

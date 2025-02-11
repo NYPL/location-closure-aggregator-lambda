@@ -20,10 +20,14 @@ def get_closures(alerts_df):
         return None
 
     # Each polling session should only encompass one day
+    alerts_df['polling_datetime'] = alerts_df[
+        'polling_datetime'].dt.tz_convert('US/Eastern')
+    alerts_df['alert_start'] = alerts_df[
+        'alert_start'].dt.tz_convert('US/Eastern')
+    alerts_df['alert_end'] = alerts_df['alert_end'].dt.tz_convert('US/Eastern')
     polling_datetimes = alerts_df['polling_datetime'].unique()
-    polling_date = polling_datetimes.min().astimezone('US/Eastern').date()
-    if (polling_date !=
-            polling_datetimes.max().astimezone('US/Eastern').date()):
+    polling_date = polling_datetimes.min().date()
+    if polling_date != polling_datetimes.max().date():
         logger.error('Polling occurred over multiple days')
         raise LocationClosureAggregatorError(
             'Polling occurred over multiple days')
@@ -39,9 +43,6 @@ def get_closures(alerts_df):
         # We assume the most recently polled version of the alert is the most
         # accurate and use it as the primary data source
         last_alert = alert_group.loc[alert_group['polling_datetime'].idxmax()]
-        alert_start_et = last_alert['alert_start'].astimezone(
-            'US/Eastern')
-        alert_end_et = last_alert['alert_end'].astimezone('US/Eastern')
         closure = {
             'drupal_location_id': last_alert['drupal_location_id'],
             'name': last_alert['name'],
@@ -57,8 +58,8 @@ def get_closures(alerts_df):
         # and record only the date of the closure without times
         if (last_alert['regular_open'] is None or
                 last_alert['regular_close'] is None):
-            if (alert_start_et.date() <= polling_date and
-                    alert_end_et.date() >= polling_date):
+            if (last_alert['alert_start'].date() <= polling_date and
+                    last_alert['alert_end'].date() >= polling_date):
                 closure['closure_start'] = None
                 closure['closure_end'] = None
                 closure['is_full_day'] = True
@@ -71,30 +72,29 @@ def get_closures(alerts_df):
             datetime.combine(polling_date, last_alert['regular_close']))
 
         # Ignore alerts that occur outside of a library's regular hours
-        if (alert_start_et < regular_close_et
-                and alert_end_et > regular_open_et):
+        if (last_alert['alert_start'] < regular_close_et
+                and last_alert['alert_end'] > regular_open_et):
             # Clamp the closure to the library's regular hours
-            closure_start = max(regular_open_et, alert_start_et)
-            closure_end = min(regular_close_et, alert_end_et)
+            closure_start = max(regular_open_et, last_alert['alert_start'])
+            closure_end = min(regular_close_et, last_alert['alert_end'])
 
-            # If the stated closure doesn't match what's seen by the
-            # poller, infer the real closure from the polling times.
+            # If the stated closure doesn't match what's seen by the poller,
+            # infer the real closure from the polling times. Because an alert
+            # being up outside the scheduled closure does not indicate that the
+            # library is actually closed at the time (i.e. an alert can be up
+            # for a future/past closure), we will only ever infer that the
+            # closure is shorter than listed.
             alert_poll_times = set(alert_group['polling_datetime'])
             expected_alert_poll_times = {
                 dt for dt in polling_datetimes
                 if dt > closure_start and dt < closure_end}
-            regular_hours_poll_times = {
-                dt for dt in polling_datetimes
-                if dt > regular_open_et and dt < regular_close_et}
             if not expected_alert_poll_times.issubset(alert_poll_times):
-                closure_start = min(
-                    alert_poll_times).astimezone('US/Eastern')
-                closure_end = max(
-                    alert_poll_times).astimezone('US/Eastern')
+                closure_start = max(closure_start, min(alert_poll_times))
+                closure_end = min(closure_end, max(alert_poll_times))
             closure['closure_start'] = closure_start.time().isoformat()
             closure['closure_end'] = closure_end.time().isoformat()
-            closure['is_full_day'] = regular_hours_poll_times.issubset(
-                alert_poll_times)
+            closure['is_full_day'] = (closure_start <= regular_open_et
+                                      and closure_end >= regular_close_et)
             closures.append(closure)
 
     return None if len(closures) == 0 else pd.DataFrame.from_dict(
