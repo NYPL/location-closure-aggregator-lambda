@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 from nypl_py_utils.classes.kms_client import KmsClient
 from nypl_py_utils.classes.redshift_client import RedshiftClient
+from nypl_py_utils.functions.config_helper import load_env_file
 from nypl_py_utils.functions.log_helper import create_log
 from pytz import timezone
 from query_helper import build_get_alerts_query
@@ -109,6 +110,9 @@ def get_closures(alerts_df):
 
 
 def lambda_handler(event, context):
+    if os.environ["ENVIRONMENT"] == "devel":
+        load_env_file("devel", "config/{}.yaml")
+
     logger.info("Starting lambda processing")
     kms_client = KmsClient()
     redshift_client = RedshiftClient(
@@ -156,7 +160,10 @@ def lambda_handler(event, context):
         )
         queries.append((insert_query, closures))
     queries.append(("DELETE FROM {};".format(closure_alerts_table), None))
-    redshift_client.execute_transaction(queries)
+    if os.environ.get("DO_NOT_UPDATE", False) == "True":
+        logger.info(f"The following queries were created: {queries}")
+    else:
+        redshift_client.execute_transaction(queries)
     redshift_client.close_connection()
 
     logger.info("Finished lambda processing")

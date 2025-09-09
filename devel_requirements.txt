@@ -1,2 +1,5 @@
 black
-nypl-py-utils[redshift-client]==1.7.0
+nypl-py-utils[kms-client,redshift-client,config-helper]==1.7.0
+pandas
+pytest
+pytest-mock
