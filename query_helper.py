@@ -1,4 +1,4 @@
-_GET_ALERTS_QUERY = '''
+_GET_ALERTS_QUERY = """
     WITH current_location_hours AS (
         SELECT
             {hours_table}.drupal_location_id,
@@ -26,9 +26,10 @@ _GET_ALERTS_QUERY = '''
     ON {closure_alerts_table}.drupal_location_id =
         current_location_hours.drupal_location_id
     AND LEFT(TO_CHAR({closure_alerts_table}.polling_datetime AT TIME ZONE
-        'America/New_York', 'Day'), 3) = current_location_hours.weekday;'''
+        'America/New_York', 'Day'), 3) = current_location_hours.weekday;"""
 
 
 def build_get_alerts_query(hours_table, closure_alerts_table):
-    return _GET_ALERTS_QUERY.format(hours_table=hours_table,
-                                    closure_alerts_table=closure_alerts_table)
+    return _GET_ALERTS_QUERY.format(
+        hours_table=hours_table, closure_alerts_table=closure_alerts_table
+    )

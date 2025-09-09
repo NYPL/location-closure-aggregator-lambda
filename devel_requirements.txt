@@ -1,0 +1,2 @@
+black
+nypl-py-utils[redshift-client]==1.7.0
