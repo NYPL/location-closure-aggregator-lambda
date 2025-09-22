@@ -55,23 +55,6 @@ _BASE_ALERTS_DF = convert_df_types(
 
 
 class TestLambdaFunction:
-
-    @classmethod
-    def setup_class(cls):
-        os.environ["ENVIRONMENT"] = "test"
-        os.environ["REDSHIFT_DB_HOST"] = "test_redshift_host"
-        os.environ["REDSHIFT_DB_NAME"] = "test_redshift_db"
-        os.environ["REDSHIFT_DB_USER"] = "test_redshift_user"
-        os.environ["REDSHIFT_DB_PASSWORD"] = "test_redshift_password"
-
-    @classmethod
-    def teardown_class(cls):
-        del os.environ["ENVIRONMENT"]
-        del os.environ["REDSHIFT_DB_HOST"]
-        del os.environ["REDSHIFT_DB_NAME"]
-        del os.environ["REDSHIFT_DB_USER"]
-        del os.environ["REDSHIFT_DB_PASSWORD"]
-
     @pytest.fixture
     def test_instance(self, mocker):
         mocker.patch("lambda_function.create_log")
