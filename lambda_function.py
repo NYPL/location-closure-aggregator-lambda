@@ -33,7 +33,7 @@ def get_closures(alerts_df):
         raise LocationClosureAggregatorError("Polling occurred over multiple days")
 
     closures = []
-    for ids, alert_group in alerts_df.groupby(["alert_id", "drupal_location_id"]):
+    for ids, alert_group in alerts_df.groupby(["alert_id", "location_id"]):
         # These are fake alerts created by the LocationClosureAlertPoller for
         # the purpose of recording each polling datetime
         if ids[0] == "location_closure_alert_poller":
@@ -43,7 +43,7 @@ def get_closures(alerts_df):
         # accurate and use it as the primary data source
         last_alert = alert_group.loc[alert_group["polling_datetime"].idxmax()]
         closure = {
-            "drupal_location_id": last_alert["drupal_location_id"],
+            "location_id": last_alert["location_id"],
             "name": last_alert["name"],
             "alert_id": last_alert["alert_id"],
             "closed_for": last_alert["closed_for"],
@@ -123,9 +123,9 @@ def lambda_handler(event, context):
     )
     kms_client.close()
 
-    hours_table = "location_hours"
-    closures_table = "location_closures"
-    closure_alerts_table = "location_closure_alerts"
+    hours_table = "location_hours_v2"
+    closures_table = "location_closures_v2"
+    closure_alerts_table = "location_closure_alerts_v2"
     if os.environ["REDSHIFT_DB_NAME"] != "production":
         db_suffix = "_{}".format(os.environ["REDSHIFT_DB_NAME"])
         hours_table += db_suffix
@@ -139,7 +139,7 @@ def lambda_handler(event, context):
     alerts_df = pd.DataFrame(
         data=raw_alerts,
         columns=[
-            "drupal_location_id",
+            "location_id",
             "name",
             "alert_id",
             "closed_for",

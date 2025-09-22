@@ -24,7 +24,7 @@ def get_polling_times(start, end):
 
 _BASE_CLOSURES = pd.DataFrame(
     {
-        "drupal_location_id": ["aa"],
+        "location_id": ["aa"],
         "name": ["Library A"],
         "alert_id": ["1"],
         "closed_for": ["Lib A is closed"],
@@ -39,7 +39,7 @@ _BASE_CLOSURES = pd.DataFrame(
 _BASE_ALERTS_DF = convert_df_types(
     pd.DataFrame(
         {
-            "drupal_location_id": ["location_closure_alert_poller"] * 15,
+            "location_id": ["location_closure_alert_poller"] * 15,
             "name": [None] * 15,
             "alert_id": [None] * 15,
             "closed_for": [None] * 15,
@@ -58,6 +58,7 @@ class TestLambdaFunction:
 
     @classmethod
     def setup_class(cls):
+        os.environ["ENVIRONMENT"] = "test"
         os.environ["REDSHIFT_DB_HOST"] = "test_redshift_host"
         os.environ["REDSHIFT_DB_NAME"] = "test_redshift_db"
         os.environ["REDSHIFT_DB_USER"] = "test_redshift_user"
@@ -65,6 +66,7 @@ class TestLambdaFunction:
 
     @classmethod
     def teardown_class(cls):
+        del os.environ["ENVIRONMENT"]
         del os.environ["REDSHIFT_DB_HOST"]
         del os.environ["REDSHIFT_DB_NAME"]
         del os.environ["REDSHIFT_DB_USER"]
@@ -121,8 +123,8 @@ class TestLambdaFunction:
         first_query = mock_redshift_client.execute_transaction.call_args.args[0][0]
         second_query = mock_redshift_client.execute_transaction.call_args.args[0][1]
         assert first_query[0] == (
-            "INSERT INTO location_closures_test_redshift_db VALUES (%s, %s, "
-            "%s, %s, %s, %s, %s, %s, %s);"
+            "INSERT INTO location_closures_v2_test_redshift_db VALUES "
+            "(%s, %s, %s, %s, %s, %s, %s, %s, %s);"
         )
         assert first_query[1] == [
             [
@@ -138,7 +140,7 @@ class TestLambdaFunction:
             ]
         ]
         assert second_query[0] == (
-            "DELETE FROM location_closure_alerts_test_redshift_db;"
+            "DELETE FROM location_closure_alerts_v2_test_redshift_db;"
         )
         assert second_query[1] is None
 
@@ -148,7 +150,7 @@ class TestLambdaFunction:
     def test_temp_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["aa"] * 3,
+                "location_id": ["aa"] * 3,
                 "name": ["Library A"] * 3,
                 "alert_id": ["1"] * 3,
                 "closed_for": ["Lib A is closed"] * 3,
@@ -169,7 +171,7 @@ class TestLambdaFunction:
     def test_temp_closure_with_long_alert(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["aa"] * 15,
+                "location_id": ["aa"] * 15,
                 "name": ["Library A"] * 15,
                 "alert_id": ["1"] * 15,
                 "closed_for": ["Lib A is closed"] * 15,
@@ -190,7 +192,7 @@ class TestLambdaFunction:
     def test_extended_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["bb"] * 15,
+                "location_id": ["bb"] * 15,
                 "name": ["Library B"] * 15,
                 "alert_id": ["2"] * 15,
                 "closed_for": ["Lib B is closed"] * 15,
@@ -208,7 +210,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["bb"],
+                "location_id": ["bb"],
                 "name": ["Library B"],
                 "alert_id": ["2"],
                 "closed_for": ["Lib B is closed"],
@@ -225,7 +227,7 @@ class TestLambdaFunction:
     def test_clamped_closures(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["cc"] * 6 + ["dd"] * 6,
+                "location_id": ["cc"] * 6 + ["dd"] * 6,
                 "name": ["Library C"] * 6 + ["Library D"] * 6,
                 "alert_id": ["3"] * 6 + ["4"] * 6,
                 "closed_for": ["Lib C is closed"] * 6 + ["Lib D is closed"] * 6,
@@ -248,7 +250,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["cc", "dd"],
+                "location_id": ["cc", "dd"],
                 "name": ["Library C", "Library D"],
                 "alert_id": ["3", "4"],
                 "closed_for": ["Lib C is closed", "Lib D is closed"],
@@ -265,7 +267,7 @@ class TestLambdaFunction:
     def test_full_day_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["ee"] * 10,
+                "location_id": ["ee"] * 10,
                 "name": ["Library E"] * 10,
                 "alert_id": ["5"] * 10,
                 "closed_for": ["Lib E is closed"] * 10,
@@ -283,7 +285,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["ee"],
+                "location_id": ["ee"],
                 "name": ["Library E"],
                 "alert_id": ["5"],
                 "closed_for": ["Lib E is closed"],
@@ -300,7 +302,7 @@ class TestLambdaFunction:
     def test_out_of_bounds_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["ff"] * 2,
+                "location_id": ["ff"] * 2,
                 "name": ["Library F"] * 2,
                 "alert_id": ["6"] * 2,
                 "closed_for": ["Lib F is closed"] * 2,
@@ -321,7 +323,7 @@ class TestLambdaFunction:
     def test_unavailable_hours_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["gg"] * 3,
+                "location_id": ["gg"] * 3,
                 "name": ["Library G"] * 3,
                 "alert_id": ["7"] * 3,
                 "closed_for": ["Lib G is closed"] * 3,
@@ -339,7 +341,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["gg"],
+                "location_id": ["gg"],
                 "name": ["Library G"],
                 "alert_id": ["7"],
                 "closed_for": ["Lib G is closed"],
@@ -356,7 +358,7 @@ class TestLambdaFunction:
     def test_modified_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["hh"] * 4,
+                "location_id": ["hh"] * 4,
                 "name": ["Library H"] * 4,
                 "alert_id": ["8"] * 4,
                 "closed_for": ["orig closed_for"] * 2 + ["new closed_for"] * 2,
@@ -378,7 +380,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["hh"],
+                "location_id": ["hh"],
                 "name": ["Library H"],
                 "alert_id": ["8"],
                 "closed_for": ["new closed_for"],
@@ -395,7 +397,7 @@ class TestLambdaFunction:
     def test_deleted_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["ii"] * 4,
+                "location_id": ["ii"] * 4,
                 "name": ["Library I"] * 4,
                 "alert_id": ["9"] * 4,
                 "closed_for": ["Lib I is closed"] * 4,
@@ -413,7 +415,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["ii"],
+                "location_id": ["ii"],
                 "name": ["Library I"],
                 "alert_id": ["9"],
                 "closed_for": ["Lib I is closed"],
@@ -430,7 +432,7 @@ class TestLambdaFunction:
     def test_unavailable_hours_out_of_bounds_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["jj"] * 3,
+                "location_id": ["jj"] * 3,
                 "name": ["Library J"] * 3,
                 "alert_id": ["10"] * 3,
                 "closed_for": ["Lib J is closed"] * 3,
@@ -451,7 +453,7 @@ class TestLambdaFunction:
     def test_multi_location_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "drupal_location_id": ["kk"] * 10 + ["ll"] * 10,
+                "location_id": ["kk"] * 10 + ["ll"] * 10,
                 "name": ["Library K"] * 10 + ["Library L"] * 10,
                 "alert_id": ["11"] * 20,
                 "closed_for": ["Lib K is closed"] * 10 + ["Lib L is closed"] * 10,
@@ -469,7 +471,7 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "drupal_location_id": ["kk", "ll"],
+                "location_id": ["kk", "ll"],
                 "name": ["Library K", "Library L"],
                 "alert_id": ["11", "11"],
                 "closed_for": ["Lib K is closed", "Lib L is closed"],
