@@ -8,7 +8,7 @@ from nypl_py_utils.classes.redshift_client import RedshiftClient
 from nypl_py_utils.functions.config_helper import load_env_file
 from nypl_py_utils.functions.log_helper import create_log
 from pytz import timezone
-from query_helper import build_get_alerts_query
+from query_helper import build_get_alerts_query, build_insert_query
 
 logger = create_log("lambda_function")
 
@@ -155,9 +155,7 @@ def lambda_handler(event, context):
     queries = []
     if closures is not None:
         placeholder = ", ".join(["%s"] * len(closures[0]))
-        insert_query = "INSERT INTO {closures_table} VALUES ({placeholder});".format(
-            closures_table=closures_table, placeholder=placeholder
-        )
+        insert_query = build_insert_query(closures_table, placeholder)
         queries.append((insert_query, closures))
     queries.append(("DELETE FROM {};".format(closure_alerts_table), None))
     if os.environ.get("DO_NOT_UPDATE", False) == "True":
