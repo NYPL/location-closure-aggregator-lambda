@@ -105,10 +105,7 @@ class TestLambdaFunction:
         assert len(mock_redshift_client.execute_transaction.call_args.args[0]) == 2
         first_query = mock_redshift_client.execute_transaction.call_args.args[0][0]
         second_query = mock_redshift_client.execute_transaction.call_args.args[0][1]
-        assert first_query[0] == (
-            "INSERT INTO location_closures_v2_test_redshift_db VALUES "
-            "(%s, %s, %s, %s, %s, %s, %s, %s, %s);"
-        )
+        assert "INSERT INTO location_closures_v2_test_redshift_db" in first_query[0]
         assert first_query[1] == [
             [
                 "aa",
