@@ -28,17 +28,7 @@ _GET_ALERTS_QUERY = '''
     AND LEFT(TO_CHAR({closure_alerts_table}.polling_datetime AT TIME ZONE
         'America/New_York', 'Day'), 3) = current_location_hours.weekday;'''
 
-_INSERT_QUERY = '''
-    INSERT INTO {closures_table} (
-        drupal_location_id, name, alert_id, closed_for, is_extended_closure, closure_date,
-        closure_start, closure_end, is_full_day
-    ) VALUES ({placeholder});
-'''
-
 
 def build_get_alerts_query(hours_table, closure_alerts_table):
     return _GET_ALERTS_QUERY.format(hours_table=hours_table,
                                     closure_alerts_table=closure_alerts_table)
-
-def build_insert_query(closures_table, placeholder):
-    return _INSERT_QUERY.format(closures_table=closures_table, placeholder=placeholder)
