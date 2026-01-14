@@ -33,10 +33,12 @@ def get_closures(alerts_df):
         raise LocationClosureAggregatorError("Polling occurred over multiple days")
 
     closures = []
-    for ids, alert_group in alerts_df.groupby(["alert_id", "location_id"]):
+    for ids, alert_group in alerts_df.groupby(
+        ["alert_id", "location_id"], dropna=False
+    ):
         # These are fake alerts created by the LocationClosureAlertPoller for
         # the purpose of recording each polling datetime
-        if ids[0] == "location_closure_alert_poller":
+        if ids[1] == "location_closure_alert_poller":
             continue
 
         # We assume the most recently polled version of the alert is the most
@@ -62,7 +64,7 @@ def get_closures(alerts_df):
             ):
                 closure["closure_start"] = None
                 closure["closure_end"] = None
-                closure["is_full_day"] = True
+                closure["is_full_day"] = None if pd.isnull(ids[1]) else True
                 closures.append(closure)
             continue
 
