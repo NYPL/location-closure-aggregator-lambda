@@ -1,6 +1,5 @@
 import json
 import lambda_function
-import os
 import pandas as pd
 import pytest
 
@@ -460,6 +459,41 @@ class TestLambdaFunction:
                 "closure_start": ["09:00:00", "09:00:00"],
                 "closure_end": ["17:00:00", "17:00:00"],
                 "is_full_day": [True, True],
+            }
+        ).values.tolist()
+
+        assert lambda_function.get_closures(_FULL_DF) == _CLOSURES
+
+    def test_system_closure(self, test_instance):
+        _ALERTS_DF = pd.DataFrame(
+            {
+                "location_id": [None] * 3,
+                "name": [None] * 3,
+                "alert_id": ["12"] * 3,
+                "closed_for": ["NYPL is closed"] * 3,
+                "extended_closing": [False] * 3,
+                "alert_start": ["2023-01-01 00:00:00-04"] * 3,
+                "alert_end": ["2023-01-02 00:00:00-04"] * 3,
+                "polling_datetime": get_polling_times(10, 13),
+                "regular_open": [None] * 3,
+                "regular_close": [None] * 3,
+            }
+        )
+        _FULL_DF = convert_df_types(
+            pd.concat([_BASE_ALERTS_DF, _ALERTS_DF], ignore_index=True)
+        )
+
+        _CLOSURES = pd.DataFrame(
+            {
+                "location_id": [None],
+                "name": [None],
+                "alert_id": ["12"],
+                "closed_for": ["NYPL is closed"],
+                "is_extended_closure": [False],
+                "closure_date": ["2023-01-01"],
+                "closure_start": [None],
+                "closure_end": [None],
+                "is_full_day": [None],
             }
         ).values.tolist()
 
