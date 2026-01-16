@@ -472,8 +472,8 @@ class TestLambdaFunction:
                 "alert_id": ["12"] * 3,
                 "closed_for": ["NYPL is closed"] * 3,
                 "extended_closing": [False] * 3,
-                "alert_start": ["2023-01-01 00:00:00-04"] * 3,
-                "alert_end": ["2023-01-02 00:00:00-04"] * 3,
+                "alert_start": ["2023-01-01 00:00:00-05"] * 3,
+                "alert_end": ["2023-01-03 23:59:59-05"] * 3,
                 "polling_datetime": get_polling_times(10, 13),
                 "regular_open": [None] * 3,
                 "regular_close": [None] * 3,
@@ -491,8 +491,8 @@ class TestLambdaFunction:
                 "closed_for": ["NYPL is closed"],
                 "is_extended_closure": [False],
                 "closure_date": ["2023-01-01"],
-                "closure_start": [None],
-                "closure_end": [None],
+                "closure_start": ["00:00:00"],
+                "closure_end": ["23:59:59"],
                 "is_full_day": [None],
             }
         ).values.tolist()
