@@ -32,6 +32,12 @@ def get_closures(alerts_df):
         logger.error("Polling occurred over multiple days")
         raise LocationClosureAggregatorError("Polling occurred over multiple days")
 
+    day_start = _EASTERN_TIMEZONE.localize(
+        datetime(polling_date.year, polling_date.month, polling_date.day, 0, 0, 0)
+    )
+    day_end = _EASTERN_TIMEZONE.localize(
+        datetime(polling_date.year, polling_date.month, polling_date.day, 23, 59, 59)
+    )
     closures = []
     for ids, alert_group in alerts_df.groupby(
         ["alert_id", "location_id"], dropna=False
@@ -53,6 +59,24 @@ def get_closures(alerts_df):
             "closure_date": polling_date.isoformat(),
         }
 
+        # If there is no location id, this is a system-wide alert (or an error)
+        # and we assume the stated closure hours are correct.
+        if pd.isnull(ids[1]):
+            if (
+                last_alert["alert_start"].date() <= polling_date
+                and last_alert["alert_end"].date() >= polling_date
+            ):
+                # Clamp the closure to the current date
+                closure["closure_start"] = (
+                    max(day_start, last_alert["alert_start"]).time().isoformat()
+                )
+                closure["closure_end"] = (
+                    min(day_end, last_alert["alert_end"]).time().isoformat()
+                )
+                closure["is_full_day"] = None
+                closures.append(closure)
+            continue
+
         # If the library's regular hours are not available (e.g. when the
         # library is under an extended closure), check that the alert was
         # active on the polling date and, if so, assume it lasts the full day
@@ -64,7 +88,7 @@ def get_closures(alerts_df):
             ):
                 closure["closure_start"] = None
                 closure["closure_end"] = None
-                closure["is_full_day"] = None if pd.isnull(ids[1]) else True
+                closure["is_full_day"] = True
                 closures.append(closure)
             continue
 
