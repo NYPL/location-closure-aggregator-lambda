@@ -2,7 +2,8 @@
 
 rm -f -r ./package
 rm -f deployment-package.zip
-pip3.9 install --target ./package -r requirements.txt
+pip install --upgrade pip
+pip install --target ./package -r requirements.txt
 cd package
 zip -r ../deployment-package.zip .
 cd ..
