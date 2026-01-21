@@ -467,16 +467,18 @@ class TestLambdaFunction:
     def test_system_closure(self, test_instance):
         _ALERTS_DF = pd.DataFrame(
             {
-                "location_id": [None] * 3,
-                "name": [None] * 3,
-                "alert_id": ["12"] * 3,
-                "closed_for": ["NYPL is closed"] * 3,
-                "extended_closing": [False] * 3,
-                "alert_start": ["2023-01-01 00:00:00-05"] * 3,
-                "alert_end": ["2023-01-03 23:59:59-05"] * 3,
-                "polling_datetime": get_polling_times(10, 13),
-                "regular_open": [None] * 3,
-                "regular_close": [None] * 3,
+                "location_id": [None] * 6,
+                "name": [None] * 6,
+                "alert_id": ["12"] * 3 + ["13"] * 3,
+                "closed_for": ["System full closure"] * 3 + ["System part closure"] * 3,
+                "extended_closing": [False] * 6,
+                "alert_start": ["2023-01-01 00:00:59-05"] * 6,
+                "alert_end": (
+                    ["2023-01-01 23:59:00-05"] * 3 + ["2023-01-01 11:00:00-05"] * 3
+                ),
+                "polling_datetime": get_polling_times(10, 13) * 2,
+                "regular_open": [None] * 6,
+                "regular_close": [None] * 6,
             }
         )
         _FULL_DF = convert_df_types(
@@ -485,15 +487,15 @@ class TestLambdaFunction:
 
         _CLOSURES = pd.DataFrame(
             {
-                "location_id": [None],
-                "name": [None],
-                "alert_id": ["12"],
-                "closed_for": ["NYPL is closed"],
-                "is_extended_closure": [False],
-                "closure_date": ["2023-01-01"],
-                "closure_start": ["00:00:00"],
-                "closure_end": ["23:59:59"],
-                "is_full_day": [None],
+                "location_id": [None, None],
+                "name": [None, None],
+                "alert_id": ["12", "13"],
+                "closed_for": ["System full closure", "System part closure"],
+                "is_extended_closure": [False, False],
+                "closure_date": ["2023-01-01", "2023-01-01"],
+                "closure_start": ["00:00:59", "00:00:59"],
+                "closure_end": ["23:59:00", "11:00:00"],
+                "is_full_day": [True, False],
             }
         ).values.tolist()
 
