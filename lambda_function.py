@@ -2,7 +2,7 @@ import json
 import os
 import pandas as pd
 
-from datetime import datetime
+from datetime import datetime, time
 from nypl_py_utils.classes.kms_client import KmsClient
 from nypl_py_utils.classes.redshift_client import RedshiftClient
 from nypl_py_utils.functions.config_helper import load_env_file
@@ -67,13 +67,13 @@ def get_closures(alerts_df):
                 and last_alert["alert_end"].date() >= polling_date
             ):
                 # Clamp the closure to the current date
-                closure["closure_start"] = (
-                    max(day_start, last_alert["alert_start"]).time().isoformat()
-                )
-                closure["closure_end"] = (
-                    min(day_end, last_alert["alert_end"]).time().isoformat()
-                )
-                closure["is_full_day"] = None
+                closure_start = max(day_start, last_alert["alert_start"]).time()
+                closure_end = min(day_end, last_alert["alert_end"]).time()
+                closure["closure_start"] = closure_start.isoformat()
+                closure["closure_end"] = closure_end.isoformat()
+                closure["is_full_day"] = closure_start <= time(
+                    0, 0, 59
+                ) and closure_end >= time(23, 59, 0)
                 closures.append(closure)
             continue
 
